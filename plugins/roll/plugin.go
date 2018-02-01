@@ -25,14 +25,18 @@ var plugin = bot.SimplePlugin("roll", func(b *bot.Bot) error {
 		return err
 	}
 	b.AddCommand(command)
+	b.AddCommand(bot.ToHiddenCommand(emojiCommand))
 	return nil
 })
 
-var command = bot.SimpleCommand("roll", execute, bot.SimpleCommandInfo{
+var command = bot.SimpleCommand("roll", execute, commandInfo)
+var emojiCommand = bot.SimpleCommand("\U0001F3B2", execute, commandInfo)
+
+var commandInfo = bot.SimpleCommandInfo{
 	Comment:     "roll dice",
 	Usage:       []string{"roll [<number of dice>]d<number of sides>[+|-<modifier>] [<text>]"},
 	Description: fmt.Sprintf("Roll %d to %d dice each with %d to %d sides with an optional modifier between %d and %d. If <number of dice> is missing, it will default to the minimum. Additional text may be included after the command.", cfg.Dice.Min, cfg.Dice.Max, cfg.Sides.Min, cfg.Sides.Max, cfg.Modifier.Min, cfg.Modifier.Max),
-})
+}
 
 type minmax struct {
 	Min, Max int

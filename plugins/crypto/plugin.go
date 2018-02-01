@@ -15,14 +15,22 @@ func Plugin() bot.Plugin {
 
 var plugin = bot.SimplePlugin("crypto", func(b *bot.Bot) error {
 	b.AddCommand(command)
+	b.AddCommand(bot.ToHiddenCommand(emojiDownCommand))
+	b.AddCommand(bot.ToHiddenCommand(emojiUpCommand))
+	b.AddCommand(bot.ToHiddenCommand(emojiYenCommand))
 	return nil
 })
 
-var command = bot.SimpleCommand("crypto", execute, bot.SimpleCommandInfo{
+var command = bot.SimpleCommand("crypto", execute, commandInfo)
+var emojiDownCommand = bot.SimpleCommand("\U0001F4C9", execute, commandInfo)
+var emojiUpCommand = bot.SimpleCommand("\U0001F4C8", execute, commandInfo)
+var emojiYenCommand = bot.SimpleCommand("\U0001F4B9", execute, commandInfo)
+
+var commandInfo = bot.SimpleCommandInfo{
 	Comment:     "check exchange rates",
 	Usage:       []string{"crypto <pair>"},
 	Description: "Check cryptocurrency exchange rates.\nExample pair: `btcusd`",
-})
+}
 
 const (
 	increase = 47369    // #00b909

@@ -16,14 +16,18 @@ var plugin = bot.SimplePlugin("8ball", func(b *bot.Bot) error {
 		return err
 	}
 	b.AddCommand(command)
+	b.AddCommand(bot.ToHiddenCommand(emojiCommand))
 	return nil
 })
 
-var command = bot.SimpleCommand("8ball", execute, bot.SimpleCommandInfo{
+var command = bot.SimpleCommand("8ball", execute, commandInfo)
+var emojiCommand = bot.SimpleCommand("\U0001F3B1", execute, commandInfo)
+
+var commandInfo = bot.SimpleCommandInfo{
 	Comment:     "ask a yes-no question",
 	Usage:       []string{"8ball [<question>]"},
 	Description: "Ask the 8ball a yes or no question (question optional).",
-})
+}
 
 var globalEightball *eightball
 
