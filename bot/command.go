@@ -99,7 +99,8 @@ func (c *simpleCommand) Comment() string {
 }
 
 func (c *simpleCommand) Usage() []string {
-	return c.info.Usage
+	// create copy to enforce immutability
+	return append([]string(nil), c.info.Usage...)
 }
 
 func (c *simpleCommand) Description() string {
