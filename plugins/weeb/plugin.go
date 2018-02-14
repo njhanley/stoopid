@@ -7,6 +7,7 @@ import (
 
 	dg "github.com/bwmarrin/discordgo"
 	"github.com/njhanley/stoopid/bot"
+	"github.com/njhanley/stoopid/config"
 )
 
 func Plugin() bot.Plugin {
@@ -16,9 +17,33 @@ func Plugin() bot.Plugin {
 var plugin = bot.SimplePlugin("weeb", func(b *bot.Bot) error {
 	lastCallout = make(map[string]time.Time)
 	sendError = b.SendError
+	err := configure(b.Config)
+	if err != nil {
+		return err
+	}
 	b.Session.AddHandler(handle)
 	return nil
 })
+
+func configure(c *config.Config) error {
+	if c.Exists("weeb") {
+		var x struct {
+			Cooldown string
+		}
+		err := c.Get("weeb", &x)
+		if err != nil {
+			return err
+		}
+		d, err := time.ParseDuration(x.Cooldown)
+		if err != nil {
+			return err
+		}
+		cooldown = d
+	} else {
+		cooldown = 5 * time.Minute
+	}
+	return nil
+}
 
 func containsJapanese(s string) bool {
 	for _, r := range s {
@@ -45,6 +70,7 @@ func getDisplayName(st *dg.State, channelID, userID string) (name string, err er
 }
 
 var (
+	cooldown    time.Duration
 	lastCallout map[string]time.Time
 	sendError   func(error)
 	mutex       sync.Mutex
@@ -55,7 +81,7 @@ func handle(s *dg.Session, mc *dg.MessageCreate) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	if time.Since(lastCallout[m.Author.ID]) < time.Minute {
+	if time.Since(lastCallout[m.Author.ID]) < cooldown {
 		return
 	}
 
