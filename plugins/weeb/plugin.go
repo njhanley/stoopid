@@ -1,7 +1,6 @@
 package weeb
 
 import (
-	"log"
 	"sync"
 	"time"
 	"unicode"
@@ -16,6 +15,7 @@ func Plugin() bot.Plugin {
 
 var plugin = bot.SimplePlugin("weeb", func(b *bot.Bot) error {
 	lastCallout = make(map[string]time.Time)
+	sendError = b.SendError
 	b.Session.AddHandler(handle)
 	return nil
 })
@@ -31,6 +31,7 @@ func containsJapanese(s string) bool {
 
 var (
 	lastCallout map[string]time.Time
+	sendError   func(error)
 	mutex       sync.Mutex
 )
 
@@ -47,7 +48,7 @@ func handle(s *dg.Session, mc *dg.MessageCreate) {
 		lastCallout[m.Author.ID] = time.Now()
 		_, err := s.ChannelMessageSend(m.ChannelID, m.Author.Mention()+" is a filthy WEEB!")
 		if err != nil {
-			log.Print(err)
+			sendError(err)
 		}
 	}
 }

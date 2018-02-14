@@ -97,7 +97,7 @@ func (b *Bot) Disconnect() error {
 	return nil
 }
 
-// NotifyOnError causes all errors returned from command execution to be sent to c.
+// NotifyOnError causes all errors returned from command execution or plugins to be sent to c.
 // Sends will not block; it is the caller's responsibility to ensure c has a sufficient buffer.
 func (b *Bot) NotifyOnError(c chan<- error) {
 	b.errMu.Lock()
@@ -105,7 +105,8 @@ func (b *Bot) NotifyOnError(c chan<- error) {
 	b.errMu.Unlock()
 }
 
-func (b *Bot) sendError(err error) {
+// SendError allows plugins to send their own errors for centralized logging.
+func (b *Bot) SendError(err error) {
 	b.errMu.RLock()
 	select {
 	case b.err <- err:
@@ -180,7 +181,7 @@ func (b *Bot) messageCreate(s *dg.Session, m *dg.MessageCreate) {
 	if cmd != nil && (!IsOwnerCommand(cmd) || msg.Author.ID == b.owner) {
 		err := cmd.Execute(s, msg)
 		if err != nil {
-			b.sendError(err)
+			b.SendError(err)
 		}
 	}
 }
