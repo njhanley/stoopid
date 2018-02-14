@@ -15,7 +15,6 @@ func Plugin() bot.Plugin {
 }
 
 var plugin = bot.SimplePlugin("weeb", func(b *bot.Bot) error {
-	lastCallout = make(map[string]time.Time)
 	sendError = b.SendError
 	err := configure(b.Config)
 	if err != nil {
@@ -26,6 +25,7 @@ var plugin = bot.SimplePlugin("weeb", func(b *bot.Bot) error {
 })
 
 func configure(c *config.Config) error {
+	d := 5 * time.Minute
 	if c.Exists("weeb") {
 		var x struct {
 			Cooldown string
@@ -34,14 +34,12 @@ func configure(c *config.Config) error {
 		if err != nil {
 			return err
 		}
-		d, err := time.ParseDuration(x.Cooldown)
+		d, err = time.ParseDuration(x.Cooldown)
 		if err != nil {
 			return err
 		}
-		cooldown = d
-	} else {
-		cooldown = 5 * time.Minute
 	}
+	cooldown = newCooldownTimer(d)
 	return nil
 }
 
@@ -69,24 +67,43 @@ func getDisplayName(st *dg.State, channelID, userID string) (name string, err er
 	return name, nil
 }
 
+type cooldownTimer struct {
+	mu    sync.Mutex
+	dur   time.Duration
+	users map[string]time.Time
+}
+
+func newCooldownTimer(d time.Duration) *cooldownTimer {
+	return &cooldownTimer{
+		dur:   d,
+		users: make(map[string]time.Time),
+	}
+}
+
+func (c *cooldownTimer) ended(userID string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return time.Since(c.users[userID]) > c.dur
+}
+
+func (c *cooldownTimer) update(userID string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.users[userID] = time.Now()
+}
+
 var (
-	cooldown    time.Duration
-	lastCallout map[string]time.Time
-	sendError   func(error)
-	mutex       sync.Mutex
+	cooldown  *cooldownTimer
+	sendError func(error)
 )
 
 func handle(s *dg.Session, mc *dg.MessageCreate) {
 	m := mc.Message
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	if time.Since(lastCallout[m.Author.ID]) < cooldown {
-		return
-	}
-
 	if containsJapanese(m.Content) {
-		lastCallout[m.Author.ID] = time.Now()
+		defer cooldown.update(m.Author.ID)
+		if !cooldown.ended(m.Author.ID) {
+			return
+		}
 		name, err := getDisplayName(s.State, m.ChannelID, m.Author.ID)
 		if err != nil {
 			sendError(err)
