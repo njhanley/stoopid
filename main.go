@@ -14,6 +14,7 @@ import (
 	"github.com/njhanley/stoopid/plugins/roll"
 	"github.com/njhanley/stoopid/plugins/say"
 	"github.com/njhanley/stoopid/plugins/status"
+	"github.com/njhanley/stoopid/plugins/weeb"
 	"github.com/njhanley/stoopid/plugins/xkcd"
 	"golang.org/x/sys/unix"
 )
@@ -25,6 +26,7 @@ var plugins = []bot.Plugin{
 	roll.Plugin(),
 	say.Plugin(),
 	status.Plugin(),
+	weeb.Plugin(),
 	xkcd.Plugin(),
 }
 
