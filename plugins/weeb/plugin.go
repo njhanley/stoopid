@@ -1,6 +1,7 @@
 package weeb
 
 import (
+	"strings"
 	"sync"
 	"time"
 	"unicode"
@@ -16,6 +17,7 @@ func Plugin() bot.Plugin {
 
 var plugin = bot.SimplePlugin("weeb", func(b *bot.Bot) error {
 	sendError = b.SendError
+	sigil = b.Sigil()
 	err := configure(b.Config)
 	if err != nil {
 		return err
@@ -95,10 +97,17 @@ func (c *cooldownTimer) update(userID string) {
 var (
 	cooldown  *cooldownTimer
 	sendError func(error)
+	sigil     string
 )
 
 func handle(s *dg.Session, mc *dg.MessageCreate) {
 	m := mc.Message
+	if strings.HasPrefix(m.Content, sigil) {
+		return
+	}
+	if m.Author.ID == s.State.User.ID {
+		return
+	}
 	if containsJapanese(m.Content) {
 		defer cooldown.update(m.Author.ID)
 		if !cooldown.ended(m.Author.ID) {

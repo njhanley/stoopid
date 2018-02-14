@@ -157,6 +157,11 @@ func (b *Bot) GetCommand(name string) Command {
 	return b.commands[name]
 }
 
+// Sigil returns the string marking the beginning of a command.
+func (b *Bot) Sigil() string {
+	return b.sigil
+}
+
 func (b *Bot) messageCreate(s *dg.Session, m *dg.MessageCreate) {
 	msg := m.Message
 
