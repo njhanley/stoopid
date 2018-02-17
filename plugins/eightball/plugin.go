@@ -1,6 +1,8 @@
 package eightball
 
 import (
+	"time"
+
 	dg "github.com/bwmarrin/discordgo"
 	"github.com/njhanley/stoopid/bot"
 	"github.com/njhanley/stoopid/config"
@@ -29,28 +31,17 @@ var commandInfo = bot.SimpleCommandInfo{
 	Description: "Ask the 8ball a yes or no question (question optional).",
 }
 
-var globalEightball *eightball
-
-func execute(s *dg.Session, m *dg.Message) error {
-	_, err := s.ChannelMessageSend(m.ChannelID, globalEightball.answer())
-	return err
+type response struct {
+	Text   string
+	Weight float64
 }
 
-func configure(c *config.Config) error {
-	var x []answer
-	if c.Exists("8ball") {
-		err := c.Get("8ball", &x)
-		if err != nil {
-			return err
-		}
-	} else {
-		x = defaultAnswers
-	}
-	globalEightball = newEightball(x)
-	return nil
-}
+var (
+	responses []response
+	rng       *wrng
+)
 
-var defaultAnswers = []answer{
+var defaultResponses = []response{
 	{"It is certain.", 1},
 	{"It is decidedly so.", 1},
 	{"Without a doubt.", 1},
@@ -71,4 +62,34 @@ var defaultAnswers = []answer{
 	{"My sources say no.", 1},
 	{"Outlook not so good.", 1},
 	{"Very doubtful.", 1},
+}
+
+func configure(c *config.Config) error {
+	if c.Exists("8ball") {
+		err := c.Get("8ball", &responses)
+		if err != nil {
+			return err
+		}
+	} else {
+		responses = defaultResponses
+	}
+
+	var sum float64
+	for _, r := range responses {
+		sum += r.Weight
+	}
+
+	weights := make([]float64, len(responses))
+	for i := range weights {
+		weights[i] = responses[i].Weight / sum
+	}
+
+	rng = newWRNG(time.Now().UnixNano(), weights)
+
+	return nil
+}
+
+func execute(s *dg.Session, m *dg.Message) error {
+	_, err := s.ChannelMessageSend(m.ChannelID, responses[rng.get()].Text)
+	return err
 }
