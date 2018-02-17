@@ -1,6 +1,8 @@
 package eightball
 
 import (
+	"math/rand"
+	"regexp"
 	"time"
 
 	dg "github.com/bwmarrin/discordgo"
@@ -13,6 +15,7 @@ func Plugin() bot.Plugin {
 }
 
 var plugin = bot.SimplePlugin("8ball", func(b *bot.Bot) error {
+	rand.Seed(time.Now().UnixNano())
 	err := configure(b.Config)
 	if err != nil {
 		return err
@@ -39,6 +42,8 @@ type response struct {
 var (
 	responses []response
 	rng       *wrng
+
+	insults []string
 )
 
 var defaultResponses = []response{
@@ -64,15 +69,28 @@ var defaultResponses = []response{
 	{"Very doubtful.", 1},
 }
 
+var defaultInsults = []string{
+	"How should I know?",
+	"What kind of question is that?",
+	"I don't think you understand the meaning of \"yes or no\".",
+}
+
 func configure(c *config.Config) error {
+	var x struct {
+		Responses []response
+		Insults   []string
+	}
 	if c.Exists("8ball") {
-		err := c.Get("8ball", &responses)
+		err := c.Get("8ball", &x)
 		if err != nil {
 			return err
 		}
-	} else {
-		responses = defaultResponses
 	}
+
+	if len(x.Responses) == 0 {
+		x.Responses = defaultResponses
+	}
+	responses = x.Responses
 
 	var sum float64
 	for _, r := range responses {
@@ -86,10 +104,23 @@ func configure(c *config.Config) error {
 
 	rng = newWRNG(time.Now().UnixNano(), weights)
 
+	if len(x.Insults) == 0 {
+		x.Insults = defaultInsults
+	}
+	insults = x.Insults
+
 	return nil
 }
 
+var wrongQuestion = regexp.MustCompile("^(?i:how|what|when|where|which|who|why)")
+
 func execute(s *dg.Session, m *dg.Message) error {
-	_, err := s.ChannelMessageSend(m.ChannelID, responses[rng.get()].Text)
+	var msg string
+	if wrongQuestion.MatchString(m.Content) {
+		msg = insults[rand.Intn(len(insults))]
+	} else {
+		msg = responses[rng.get()].Text
+	}
+	_, err := s.ChannelMessageSend(m.ChannelID, msg)
 	return err
 }
