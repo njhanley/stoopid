@@ -35,7 +35,7 @@ var commandInfo = bot.SimpleCommandInfo{
 }
 
 type response struct {
-	Text   string
+	Text   []string
 	Weight float64
 }
 
@@ -47,26 +47,26 @@ var (
 )
 
 var defaultResponses = []response{
-	{"It is certain.", 1},
-	{"It is decidedly so.", 1},
-	{"Without a doubt.", 1},
-	{"Yes definitely.", 1},
-	{"You may rely on it.", 1},
-	{"As I see it, yes.", 1},
-	{"Most likely.", 1},
-	{"Outlook good.", 1},
-	{"Yes.", 1},
-	{"Signs point to yes.", 1},
-	{"Reply hazy try again.", 1},
-	{"Ask again later.", 1},
-	{"Better not tell you now.", 1},
-	{"Cannot predict now.", 1},
-	{"Concentrate and ask again.", 1},
-	{"Don't count on it.", 1},
-	{"My reply is no.", 1},
-	{"My sources say no.", 1},
-	{"Outlook not so good.", 1},
-	{"Very doubtful.", 1},
+	{[]string{"It is certain."}, 1},
+	{[]string{"It is decidedly so."}, 1},
+	{[]string{"Without a doubt."}, 1},
+	{[]string{"Yes definitely."}, 1},
+	{[]string{"You may rely on it."}, 1},
+	{[]string{"As I see it, yes."}, 1},
+	{[]string{"Most likely."}, 1},
+	{[]string{"Outlook good."}, 1},
+	{[]string{"Yes."}, 1},
+	{[]string{"Signs point to yes."}, 1},
+	{[]string{"Reply hazy try again."}, 1},
+	{[]string{"Ask again later."}, 1},
+	{[]string{"Better not tell you now."}, 1},
+	{[]string{"Cannot predict now."}, 1},
+	{[]string{"Concentrate and ask again."}, 1},
+	{[]string{"Don't count on it."}, 1},
+	{[]string{"My reply is no."}, 1},
+	{[]string{"My sources say no."}, 1},
+	{[]string{"Outlook not so good."}, 1},
+	{[]string{"Very doubtful."}, 1},
 }
 
 var defaultInsults = []string{
@@ -114,13 +114,16 @@ func configure(c *config.Config) error {
 
 var wrongQuestion = regexp.MustCompile("^(?i:how|what|when|where|which|who|why)")
 
-func execute(s *dg.Session, m *dg.Message) error {
-	var msg string
+func execute(s *dg.Session, m *dg.Message) (err error) {
 	if wrongQuestion.MatchString(m.Content) {
-		msg = insults[rand.Intn(len(insults))]
-	} else {
-		msg = responses[rng.get()].Text
+		_, err = s.ChannelMessageSend(m.ChannelID, insults[rand.Intn(len(insults))])
+		return err
 	}
-	_, err := s.ChannelMessageSend(m.ChannelID, msg)
+	for _, t := range responses[rng.get()].Text {
+		_, err = s.ChannelMessageSend(m.ChannelID, t)
+		if err != nil {
+			break
+		}
+	}
 	return err
 }
