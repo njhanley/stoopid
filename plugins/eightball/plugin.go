@@ -39,46 +39,67 @@ type response struct {
 	Weight float64
 }
 
+type responses struct {
+	resp []response
+	rng  *wrng
+}
+
+func newResponses(resps []response) *responses {
+	var sum float64
+	for _, r := range resps {
+		sum += r.Weight
+	}
+
+	weights := make([]float64, len(resps))
+	for i := range weights {
+		resps[i].Weight /= sum
+		weights[i] = resps[i].Weight
+	}
+
+	rng := newWRNG(time.Now().UnixNano(), weights)
+
+	return &responses{resps, rng}
+}
+
+func (rs *responses) choose() response {
+	return rs.resp[rs.rng.get()]
+}
+
 var (
-	responses []response
-	rng       *wrng
-
-	insults []string
+	answers, insults *responses
+	defaultAnswers   = []response{
+		{[]string{"It is certain."}, 1},
+		{[]string{"It is decidedly so."}, 1},
+		{[]string{"Without a doubt."}, 1},
+		{[]string{"Yes definitely."}, 1},
+		{[]string{"You may rely on it."}, 1},
+		{[]string{"As I see it, yes."}, 1},
+		{[]string{"Most likely."}, 1},
+		{[]string{"Outlook good."}, 1},
+		{[]string{"Yes."}, 1},
+		{[]string{"Signs point to yes."}, 1},
+		{[]string{"Reply hazy try again."}, 1},
+		{[]string{"Ask again later."}, 1},
+		{[]string{"Better not tell you now."}, 1},
+		{[]string{"Cannot predict now."}, 1},
+		{[]string{"Concentrate and ask again."}, 1},
+		{[]string{"Don't count on it."}, 1},
+		{[]string{"My reply is no."}, 1},
+		{[]string{"My sources say no."}, 1},
+		{[]string{"Outlook not so good."}, 1},
+		{[]string{"Very doubtful."}, 1},
+	}
+	defaultInsults = []response{
+		{[]string{"How should I know?"}, 1},
+		{[]string{"What kind of question is that?"}, 1},
+		{[]string{"I don't think you understand the meaning of \"yes or no\"."}, 1},
+	}
 )
-
-var defaultResponses = []response{
-	{[]string{"It is certain."}, 1},
-	{[]string{"It is decidedly so."}, 1},
-	{[]string{"Without a doubt."}, 1},
-	{[]string{"Yes definitely."}, 1},
-	{[]string{"You may rely on it."}, 1},
-	{[]string{"As I see it, yes."}, 1},
-	{[]string{"Most likely."}, 1},
-	{[]string{"Outlook good."}, 1},
-	{[]string{"Yes."}, 1},
-	{[]string{"Signs point to yes."}, 1},
-	{[]string{"Reply hazy try again."}, 1},
-	{[]string{"Ask again later."}, 1},
-	{[]string{"Better not tell you now."}, 1},
-	{[]string{"Cannot predict now."}, 1},
-	{[]string{"Concentrate and ask again."}, 1},
-	{[]string{"Don't count on it."}, 1},
-	{[]string{"My reply is no."}, 1},
-	{[]string{"My sources say no."}, 1},
-	{[]string{"Outlook not so good."}, 1},
-	{[]string{"Very doubtful."}, 1},
-}
-
-var defaultInsults = []string{
-	"How should I know?",
-	"What kind of question is that?",
-	"I don't think you understand the meaning of \"yes or no\".",
-}
 
 func configure(c *config.Config) error {
 	var x struct {
-		Responses []response
-		Insults   []string
+		Answers []response
+		Insults []response
 	}
 	if c.Exists("8ball") {
 		err := c.Get("8ball", &x)
@@ -87,43 +108,33 @@ func configure(c *config.Config) error {
 		}
 	}
 
-	if len(x.Responses) == 0 {
-		x.Responses = defaultResponses
+	if len(x.Answers) == 0 {
+		x.Answers = defaultAnswers
 	}
-	responses = x.Responses
-
-	var sum float64
-	for _, r := range responses {
-		sum += r.Weight
-	}
-
-	weights := make([]float64, len(responses))
-	for i := range weights {
-		weights[i] = responses[i].Weight / sum
-	}
-
-	rng = newWRNG(time.Now().UnixNano(), weights)
+	answers = newResponses(x.Answers)
 
 	if len(x.Insults) == 0 {
 		x.Insults = defaultInsults
 	}
-	insults = x.Insults
+	insults = newResponses(x.Insults)
 
 	return nil
 }
 
 var wrongQuestion = regexp.MustCompile("^(?i:how|what|when|where|which|who|why)")
 
-func execute(s *dg.Session, m *dg.Message) (err error) {
+func execute(s *dg.Session, m *dg.Message) error {
+	var resp response
 	if wrongQuestion.MatchString(m.Content) {
-		_, err = s.ChannelMessageSend(m.ChannelID, insults[rand.Intn(len(insults))])
-		return err
+		resp = insults.choose()
+	} else {
+		resp = answers.choose()
 	}
-	for _, t := range responses[rng.get()].Text {
-		_, err = s.ChannelMessageSend(m.ChannelID, t)
+	for _, t := range resp.Text {
+		_, err := s.ChannelMessageSend(m.ChannelID, t)
 		if err != nil {
-			break
+			return err
 		}
 	}
-	return err
+	return nil
 }
