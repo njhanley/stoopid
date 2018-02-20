@@ -62,7 +62,7 @@ func configure(c *config.Config) error {
 	return nil
 }
 
-var rollRegexp = regexp.MustCompile("^([1-9][0-9]*)?d([1-9][0-9]*)([+-][1-9][0-9]*)?")
+var rollRegexp = regexp.MustCompile("^([1-9][0-9]*)?d([1-9][0-9]*)([+-][1-9][0-9]*)?(?: .*)?$")
 
 func execute(s *dg.Session, m *dg.Message) error {
 	// match roll pattern
