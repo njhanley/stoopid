@@ -26,8 +26,16 @@ var plugin = bot.SimplePlugin("weeb", func(b *bot.Bot) error {
 	return nil
 })
 
+var (
+	cooldown  = 5 * time.Minute
+	sendError func(error)
+	sigil     string
+
+	mutex sync.Mutex
+	weebs = make(map[string]time.Time)
+)
+
 func configure(c *config.Config) error {
-	d := 5 * time.Minute
 	if c.Exists("weeb") {
 		var x struct {
 			Cooldown string
@@ -36,12 +44,11 @@ func configure(c *config.Config) error {
 		if err != nil {
 			return err
 		}
-		d, err = time.ParseDuration(x.Cooldown)
+		cooldown, err = time.ParseDuration(x.Cooldown)
 		if err != nil {
 			return err
 		}
 	}
-	cooldown = newCooldownTimer(d)
 	return nil
 }
 
@@ -54,72 +61,48 @@ func containsJapanese(s string) bool {
 	return false
 }
 
-func getDisplayName(st *dg.State, channelID, userID string) (name string, err error) {
+func getDisplayName(st *dg.State, channelID, userID string) (string, error) {
 	ch, err := st.Channel(channelID)
 	if err != nil {
 		return "", err
 	}
+
 	mem, err := st.Member(ch.GuildID, userID)
 	if err != nil {
 		return "", err
 	}
-	if name = mem.Nick; name == "" {
-		name = mem.User.Username
+
+	if mem.Nick != "" {
+		return mem.Nick, nil
 	}
-	return name, nil
+	return mem.User.Username, nil
 }
-
-type cooldownTimer struct {
-	mu    sync.Mutex
-	dur   time.Duration
-	users map[string]time.Time
-}
-
-func newCooldownTimer(d time.Duration) *cooldownTimer {
-	return &cooldownTimer{
-		dur:   d,
-		users: make(map[string]time.Time),
-	}
-}
-
-func (c *cooldownTimer) ended(userID string) bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return time.Since(c.users[userID]) > c.dur
-}
-
-func (c *cooldownTimer) update(userID string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.users[userID] = time.Now()
-}
-
-var (
-	cooldown  *cooldownTimer
-	sendError func(error)
-	sigil     string
-)
 
 func handle(s *dg.Session, mc *dg.MessageCreate) {
 	m := mc.Message
-	if strings.HasPrefix(m.Content, sigil) {
+	if m.Author.ID == s.State.User.ID ||
+		strings.HasPrefix(m.Content, sigil) ||
+		!containsJapanese(m.Content) {
 		return
 	}
-	if m.Author.ID == s.State.User.ID {
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	last := weebs[m.Author.ID]
+	weebs[m.Author.ID] = time.Now()
+	if time.Since(last) < cooldown {
 		return
 	}
-	if containsJapanese(m.Content) {
-		defer cooldown.update(m.Author.ID)
-		if !cooldown.ended(m.Author.ID) {
-			return
-		}
-		name, err := getDisplayName(s.State, m.ChannelID, m.Author.ID)
-		if err != nil {
-			sendError(err)
-		}
-		_, err = s.ChannelMessageSend(m.ChannelID, name+" is a filthy WEEB!")
-		if err != nil {
-			sendError(err)
-		}
+
+	name, err := getDisplayName(s.State, m.ChannelID, m.Author.ID)
+	if err != nil {
+		sendError(err)
+		return
+	}
+
+	_, err = s.ChannelMessageSend(m.ChannelID, name+" is a filthy WEEB!")
+	if err != nil {
+		sendError(err)
 	}
 }
