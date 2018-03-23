@@ -8,6 +8,7 @@ import (
 
 	"github.com/njhanley/stoopid/bot"
 	"github.com/njhanley/stoopid/config"
+	"github.com/njhanley/stoopid/plugins/avatar"
 	"github.com/njhanley/stoopid/plugins/crypto"
 	"github.com/njhanley/stoopid/plugins/eightball"
 	"github.com/njhanley/stoopid/plugins/name"
@@ -20,6 +21,7 @@ import (
 )
 
 var plugins = []bot.Plugin{
+	avatar.Plugin(),
 	crypto.Plugin(),
 	eightball.Plugin(),
 	name.Plugin(),
