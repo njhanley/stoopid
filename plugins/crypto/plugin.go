@@ -33,8 +33,8 @@ var commandInfo = bot.SimpleCommandInfo{
 }
 
 const (
-	increase = 47369    // #00b909
-	decrease = 12977670 // #c60606
+	increase = 0x00b909
+	decrease = 0xc60606
 )
 
 func ftos(f float64) string {
