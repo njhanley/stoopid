@@ -60,8 +60,6 @@ func NewBot(cfg *config.Config) (*Bot, error) {
 	return bot, nil
 }
 
-const DefaultSigil = "!"
-
 func (b *Bot) loadCfg() error {
 	err := b.Config.Get("token", &b.token)
 	if err != nil {
@@ -73,13 +71,9 @@ func (b *Bot) loadCfg() error {
 		return err
 	}
 
-	if b.Config.Exists("sigil") {
-		err = b.Config.Get("sigil", &b.sigil)
-		if err != nil {
-			return err
-		}
-	} else {
-		b.sigil = DefaultSigil
+	err = b.Config.Get("sigil", &b.sigil)
+	if err != nil {
+		return err
 	}
 
 	if b.Config.Exists("logpath") {
