@@ -32,12 +32,12 @@ var plugins = []bot.Plugin{
 	xkcd.Plugin(),
 }
 
-var configfile = flag.String("c", "config.json", "specify config location")
+var cfgfile = flag.String("c", "config.json", "config file")
 
 func main() {
 	flag.Parse()
 
-	cfg, err := config.New(*configfile)
+	cfg, err := config.New(*cfgfile)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -62,11 +62,11 @@ func main() {
 		}
 	}
 
-	err = bot.Connect()
+	err = bot.Run()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer bot.Disconnect()
+	defer bot.Stop()
 
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, unix.SIGINT, unix.SIGTERM)

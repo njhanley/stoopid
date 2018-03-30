@@ -3,14 +3,12 @@ package bot
 import (
 	"strings"
 	"sync"
-	"unicode"
 
 	dg "github.com/bwmarrin/discordgo"
 	"github.com/njhanley/stoopid/config"
 	"github.com/pkg/errors"
 )
 
-// Bot is a Discord bot.
 type Bot struct {
 	Config  *config.Config
 	Session *dg.Session
@@ -21,6 +19,8 @@ type Bot struct {
 	pluginsMu sync.RWMutex
 	plugins   map[string]Plugin
 
+	defers []func() error
+
 	errMu sync.RWMutex
 	err   chan<- error
 
@@ -30,15 +30,11 @@ type Bot struct {
 	sigil string
 }
 
-const DefaultSigil = "!"
-
-// NewBot creates a bot.
-func NewBot(c *config.Config) (*Bot, error) {
+func NewBot(cfg *config.Config) (*Bot, error) {
 	bot := &Bot{
-		Config:   c,
+		Config:   cfg,
 		commands: make(map[string]Command),
 		plugins:  make(map[string]Plugin),
-		sigil:    DefaultSigil,
 	}
 
 	err := bot.loadCfg()
@@ -58,6 +54,8 @@ func NewBot(c *config.Config) (*Bot, error) {
 	return bot, nil
 }
 
+const DefaultSigil = "!"
+
 func (b *Bot) loadCfg() error {
 	err := b.Config.Get("token", &b.token)
 	if err != nil {
@@ -74,27 +72,37 @@ func (b *Bot) loadCfg() error {
 		if err != nil {
 			return err
 		}
+	} else {
+		b.sigil = DefaultSigil
 	}
 
 	return nil
 }
 
-// Connect to Discord.
-func (b *Bot) Connect() error {
+func (b *Bot) Defer(fn func() error) {
+	b.defers = append(b.defers, fn)
+}
+
+func (b *Bot) connect() error {
 	err := b.Session.Open()
 	if err != nil {
-		return errors.Wrap(err, "failed to connect")
+		return err
 	}
+	b.Defer(b.Session.Close)
 	return nil
 }
 
-// Disconnect from Discord.
-func (b *Bot) Disconnect() error {
-	err := b.Session.Close()
-	if err != nil {
-		return errors.Wrap(err, "failed to disconnect gracefully")
+func (b *Bot) Run() error {
+	return b.connect()
+}
+
+func (b *Bot) Stop() {
+	for i := len(b.defers) - 1; i >= 0; i-- {
+		err := b.defers[i]()
+		if err != nil {
+			b.SendError(err)
+		}
 	}
-	return nil
 }
 
 // NotifyOnError causes all errors returned from command execution or plugins to be sent to c.
@@ -174,7 +182,7 @@ func (b *Bot) messageCreate(s *dg.Session, m *dg.MessageCreate) {
 	}
 	msg.Content = msg.Content[len(b.sigil):]
 
-	n := strings.IndexFunc(msg.Content, unicode.IsSpace)
+	n := strings.Index(msg.Content, " ")
 	if n < 0 {
 		n = len(msg.Content)
 	}
