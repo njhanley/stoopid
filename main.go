@@ -47,14 +47,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	c := make(chan error, 1)
-	go func() {
-		for err := range c {
-			log.Print(err)
-		}
-	}()
-	bot.NotifyOnError(c)
-
 	for _, p := range plugins {
 		err = bot.AddPlugin(p)
 		if err != nil {

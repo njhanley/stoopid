@@ -16,7 +16,7 @@ func Plugin() bot.Plugin {
 }
 
 var plugin = bot.SimplePlugin("weeb", func(b *bot.Bot) error {
-	sendError = b.SendError
+	log = b.Log
 	sigil = b.Sigil()
 	err := configure(b.Config)
 	if err != nil {
@@ -27,9 +27,9 @@ var plugin = bot.SimplePlugin("weeb", func(b *bot.Bot) error {
 })
 
 var (
-	cooldown  = 5 * time.Minute
-	sendError func(error)
-	sigil     string
+	cooldown = 5 * time.Minute
+	log      func(v ...interface{})
+	sigil    string
 
 	mutex sync.Mutex
 	weebs = make(map[string]time.Time)
@@ -97,12 +97,12 @@ func handle(s *dg.Session, mc *dg.MessageCreate) {
 
 	name, err := getDisplayName(s.State, m.ChannelID, m.Author.ID)
 	if err != nil {
-		sendError(err)
+		log(err)
 		return
 	}
 
 	_, err = s.ChannelMessageSend(m.ChannelID, name+" is a filthy WEEB!")
 	if err != nil {
-		sendError(err)
+		log(err)
 	}
 }

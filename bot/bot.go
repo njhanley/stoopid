@@ -1,8 +1,14 @@
 package bot
 
 import (
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	dg "github.com/bwmarrin/discordgo"
 	"github.com/njhanley/stoopid/config"
@@ -19,15 +25,15 @@ type Bot struct {
 	pluginsMu sync.RWMutex
 	plugins   map[string]Plugin
 
-	defers []func() error
+	defers []func()
 
-	errMu sync.RWMutex
-	err   chan<- error
+	logger *log.Logger
 
 	// immutable
-	token string
-	owner string
-	sigil string
+	token   string
+	owner   string
+	sigil   string
+	logpath string
 }
 
 func NewBot(cfg *config.Config) (*Bot, error) {
@@ -76,10 +82,55 @@ func (b *Bot) loadCfg() error {
 		b.sigil = DefaultSigil
 	}
 
+	if b.Config.Exists("logpath") {
+		err = b.Config.Get("logpath", &b.logpath)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-func (b *Bot) Defer(fn func() error) {
+func (b *Bot) initLogger() error {
+	out := io.Writer(os.Stderr)
+	if b.logpath != "" {
+		file, err := os.Create(filepath.Join(b.logpath, time.Now().Format(time.RFC3339)+".log"))
+		if err != nil {
+			return err
+		}
+		b.Defer(func() { file.Close() })
+		out = io.MultiWriter(out, file)
+	}
+	b.logger = log.New(out, "", log.LstdFlags)
+
+	msgType := []string{
+		dg.LogError:         "ERROR",
+		dg.LogWarning:       "WARNING",
+		dg.LogInformational: "INFO",
+		dg.LogDebug:         "DEBUG",
+	}
+	dg.Logger = func(level, _ int, format string, v ...interface{}) {
+		b.Logf("[DG %s] %s\n", msgType[level], fmt.Sprintf(format, v...))
+	}
+	b.Session.LogLevel = dg.LogWarning
+
+	return nil
+}
+
+func (b *Bot) Log(v ...interface{}) {
+	b.logger.Print(v...)
+}
+
+func (b *Bot) Logf(format string, v ...interface{}) {
+	b.logger.Printf(format, v...)
+}
+
+func (b *Bot) Logln(v ...interface{}) {
+	b.logger.Println(v...)
+}
+
+func (b *Bot) Defer(fn func()) {
 	b.defers = append(b.defers, fn)
 }
 
@@ -88,39 +139,22 @@ func (b *Bot) connect() error {
 	if err != nil {
 		return err
 	}
-	b.Defer(b.Session.Close)
+	b.Defer(func() { b.Session.Close() })
 	return nil
 }
 
 func (b *Bot) Run() error {
+	err := b.initLogger()
+	if err != nil {
+		return err
+	}
 	return b.connect()
 }
 
 func (b *Bot) Stop() {
 	for i := len(b.defers) - 1; i >= 0; i-- {
-		err := b.defers[i]()
-		if err != nil {
-			b.SendError(err)
-		}
+		b.defers[i]()
 	}
-}
-
-// NotifyOnError causes all errors returned from command execution or plugins to be sent to c.
-// Sends will not block; it is the caller's responsibility to ensure c has a sufficient buffer.
-func (b *Bot) NotifyOnError(c chan<- error) {
-	b.errMu.Lock()
-	b.err = c
-	b.errMu.Unlock()
-}
-
-// SendError allows plugins to send their own errors for centralized logging.
-func (b *Bot) SendError(err error) {
-	b.errMu.RLock()
-	select {
-	case b.err <- err:
-	default:
-	}
-	b.errMu.RUnlock()
 }
 
 // AddPlugin loads a plugin into the bot.
@@ -194,7 +228,7 @@ func (b *Bot) messageCreate(s *dg.Session, m *dg.MessageCreate) {
 	if cmd != nil && (!IsOwnerCommand(cmd) || msg.Author.ID == b.owner) {
 		err := cmd.Execute(s, msg)
 		if err != nil {
-			b.SendError(err)
+			b.Log(err)
 		}
 	}
 }
