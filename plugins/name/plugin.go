@@ -10,9 +10,12 @@ func Plugin() bot.Plugin {
 }
 
 var plugin = bot.SimplePlugin("name", func(b *bot.Bot) error {
+	logf = b.Logf
 	b.AddCommand(bot.ToOwnerCommand(command))
 	return nil
 })
+
+var logf func(format string, v ...interface{})
 
 var command = bot.SimpleCommand("name", execute, bot.SimpleCommandInfo{
 	Comment:     "change bot nickname",
@@ -20,14 +23,19 @@ var command = bot.SimpleCommand("name", execute, bot.SimpleCommandInfo{
 	Description: "Change or reset the bot's nickname in the guild.",
 })
 
-func execute(s *dg.Session, m *dg.Message) error {
+func execute(s *dg.Session, m *dg.Message) {
 	err := s.ChannelMessageDelete(m.ChannelID, m.ID)
 	if err != nil {
-		return err
+		logf("[name] %v", err)
+		return
 	}
 	ch, err := s.State.Channel(m.ChannelID)
 	if err != nil {
-		return err
+		logf("[name] %v", err)
+		return
 	}
-	return s.GuildMemberNickname(ch.GuildID, "@me", m.Content)
+	err = s.GuildMemberNickname(ch.GuildID, "@me", m.Content)
+	if err != nil {
+		logf("[name] %v", err)
+	}
 }

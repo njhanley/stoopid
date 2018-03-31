@@ -15,6 +15,7 @@ func Plugin() bot.Plugin {
 }
 
 var plugin = bot.SimplePlugin("8ball", func(b *bot.Bot) error {
+	logf = b.Logf
 	rand.Seed(time.Now().UnixNano())
 	err := configure(b.Config)
 	if err != nil {
@@ -24,6 +25,8 @@ var plugin = bot.SimplePlugin("8ball", func(b *bot.Bot) error {
 	b.AddCommand(bot.ToHiddenCommand(emojiCommand))
 	return nil
 })
+
+var logf func(format string, v ...interface{})
 
 var command = bot.SimpleCommand("8ball", execute, commandInfo)
 var emojiCommand = bot.SimpleCommand("\U0001F3B1", execute, commandInfo)
@@ -123,7 +126,7 @@ func configure(c *config.Config) error {
 
 var wrongQuestion = regexp.MustCompile("^(?i:how|what|when|where|which|who|why)")
 
-func execute(s *dg.Session, m *dg.Message) error {
+func execute(s *dg.Session, m *dg.Message) {
 	var resp response
 	if wrongQuestion.MatchString(m.Content) {
 		resp = insults.choose()
@@ -133,8 +136,8 @@ func execute(s *dg.Session, m *dg.Message) error {
 	for _, t := range resp.Text {
 		_, err := s.ChannelMessageSend(m.ChannelID, t)
 		if err != nil {
-			return err
+			logf("[8ball] %v", err)
+			return
 		}
 	}
-	return nil
 }

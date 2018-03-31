@@ -201,13 +201,10 @@ func (b *Bot) Sigil() string {
 func (b *Bot) messageCreate(s *dg.Session, m *dg.MessageCreate) {
 	msg := m.Message
 
-	if msg.Author.ID == s.State.User.ID {
+	if msg.Author.ID == s.State.User.ID || !strings.HasPrefix(msg.Content, b.sigil) {
 		return
 	}
 
-	if !strings.HasPrefix(msg.Content, b.sigil) {
-		return
-	}
 	msg.Content = msg.Content[len(b.sigil):]
 
 	n := strings.Index(msg.Content, " ")
@@ -218,11 +215,15 @@ func (b *Bot) messageCreate(s *dg.Session, m *dg.MessageCreate) {
 	msg.Content = strings.TrimSpace(msg.Content[n:])
 
 	cmd := b.GetCommand(name)
-
-	if cmd != nil && (!IsOwnerCommand(cmd) || msg.Author.ID == b.owner) {
-		err := cmd.Execute(s, msg)
-		if err != nil {
-			b.Log(err)
-		}
+	if cmd == nil {
+		return
 	}
+
+	if IsOwnerCommand(cmd) && msg.Author.ID != b.owner {
+		b.Logf("%s was denied access to command %q", msg.Author.Username, name)
+		return
+	}
+
+	b.Logf("%s used command %q", msg.Author.Username, name)
+	cmd.Execute(s, msg)
 }

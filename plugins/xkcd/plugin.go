@@ -14,9 +14,12 @@ func Plugin() bot.Plugin {
 }
 
 var plugin = bot.SimplePlugin("xkcd", func(b *bot.Bot) error {
+	logf = b.Logf
 	b.AddCommand(command)
 	return nil
 })
+
+var logf func(format string, v ...interface{})
 
 var command = bot.SimpleCommand("xkcd", execute, bot.SimpleCommandInfo{
 	Comment:     "get xkcd comics",
@@ -26,20 +29,25 @@ var command = bot.SimpleCommand("xkcd", execute, bot.SimpleCommandInfo{
 
 var numRegexp = regexp.MustCompile("^[1-9][0-9]*$")
 
-func execute(s *dg.Session, m *dg.Message) error {
-	var info *Info
-	var err error
+func execute(s *dg.Session, m *dg.Message) {
+	var (
+		info *Info
+		err  error
+	)
+
 	switch {
 	case m.Content == "random":
 		info, err = GetRandom()
 	case m.Content == "", numRegexp.MatchString(m.Content):
 		info, err = Get(m.Content)
 	default:
-		return nil
+		err = fmt.Errorf("invalid argument %q", m.Content)
 	}
 	if err != nil {
-		return err
+		logf("[xkcd] %v", err)
+		return
 	}
+
 	msg := &dg.MessageEmbed{
 		URL:   "https://xkcd.com/" + strconv.Itoa(info.Num) + "/",
 		Title: "xkcd: " + info.Title,
@@ -51,5 +59,7 @@ func execute(s *dg.Session, m *dg.Message) error {
 		},
 	}
 	_, err = s.ChannelMessageSendEmbed(m.ChannelID, msg)
-	return nil
+	if err != nil {
+		logf("[xkcd] %v", err)
+	}
 }

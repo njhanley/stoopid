@@ -14,12 +14,15 @@ func Plugin() bot.Plugin {
 }
 
 var plugin = bot.SimplePlugin("crypto", func(b *bot.Bot) error {
+	logf = b.Logf
 	b.AddCommand(command)
 	b.AddCommand(bot.ToHiddenCommand(emojiDownCommand))
 	b.AddCommand(bot.ToHiddenCommand(emojiUpCommand))
 	b.AddCommand(bot.ToHiddenCommand(emojiYenCommand))
 	return nil
 })
+
+var logf func(format string, v ...interface{})
 
 var command = bot.SimpleCommand("crypto", execute, commandInfo)
 var emojiDownCommand = bot.SimpleCommand("\U0001F4C9", execute, commandInfo)
@@ -41,30 +44,35 @@ func ftos(f float64) string {
 	return strconv.FormatFloat(f, 'G', -1, 64)
 }
 
-func execute(s *dg.Session, m *dg.Message) error {
+func execute(s *dg.Session, m *dg.Message) {
 	if m.Content == "" {
-		return nil
+		logf("[crypto] no argument")
+		return
 	}
 
 	pr, err := GetPair(m.Content)
 	if err != nil {
-		return err
+		logf("[crypto] %v", err)
+		return
 	}
 	if len(pr.Result.Markets) == 0 {
 		_, err := s.ChannelMessageSend(m.ChannelID, "Invalid pair.")
-		return err
+		logf("[crypto] %v", err)
+		return
 	}
 	market := pr.Result.Markets[0]
 
 	er, err := GetExchange(market.Exchange)
 	if err != nil {
-		return err
+		logf("[crypto] %v", err)
+		return
 	}
 	exchange := er.Result
 
 	msr, err := GetMarketSummary(market.Exchange, market.Pair)
 	if err != nil {
-		return err
+		logf("[crypto] %v", err)
+		return
 	}
 	summary := msr.Result
 
@@ -87,6 +95,9 @@ func execute(s *dg.Session, m *dg.Message) error {
 	} else {
 		msg.Color = decrease
 	}
+
 	_, err = s.ChannelMessageSendEmbed(m.ChannelID, msg)
-	return err
+	if err != nil {
+		logf("[crypto] %v", err)
+	}
 }

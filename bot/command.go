@@ -19,7 +19,7 @@ type Command interface {
 	Comment() string     // a short description
 	Usage() []string     // command syntax
 	Description() string // a detailed description
-	Execute(*dg.Session, *dg.Message) error
+	Execute(*dg.Session, *dg.Message)
 }
 
 // HiddenCommand is an interface for
@@ -76,7 +76,7 @@ type SimpleCommandInfo struct {
 }
 
 // ExecuteFunc is a function that implements Execute for SimpleCommand.
-type ExecuteFunc func(*dg.Session, *dg.Message) error
+type ExecuteFunc func(*dg.Session, *dg.Message)
 
 // SimpleCommand is a convenience function
 // for creating commands from functions.
@@ -107,8 +107,8 @@ func (c *simpleCommand) Description() string {
 	return c.info.Description
 }
 
-func (c *simpleCommand) Execute(s *dg.Session, m *dg.Message) error {
-	return c.exec(s, m)
+func (c *simpleCommand) Execute(s *dg.Session, m *dg.Message) {
+	c.exec(s, m)
 }
 
 type helpCommand struct {
@@ -131,11 +131,16 @@ func (c helpCommand) Description() string {
 	return "Get information about commands. If a command is not specified, list all commands."
 }
 
-func (c helpCommand) Execute(s *dg.Session, m *dg.Message) error {
+func (c helpCommand) Execute(s *dg.Session, m *dg.Message) {
+	var err error
 	if m.Content == "" {
-		return c.helplist(s, m)
+		c.helplist(s, m)
+	} else {
+		c.help(s, m)
 	}
-	return c.help(s, m)
+	if err != nil {
+		c.Log("[help]", err)
+	}
 }
 
 const missingText = "<undefined>"

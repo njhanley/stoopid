@@ -11,7 +11,6 @@ import (
 	dg "github.com/bwmarrin/discordgo"
 	"github.com/njhanley/stoopid/bot"
 	"github.com/njhanley/stoopid/config"
-	"github.com/pkg/errors"
 )
 
 func Plugin() bot.Plugin {
@@ -19,6 +18,7 @@ func Plugin() bot.Plugin {
 }
 
 var plugin = bot.SimplePlugin("roll", func(b *bot.Bot) error {
+	logf = b.Logf
 	rand.Seed(time.Now().UnixNano())
 	err := configure(b.Config)
 	if err != nil {
@@ -28,6 +28,8 @@ var plugin = bot.SimplePlugin("roll", func(b *bot.Bot) error {
 	b.AddCommand(bot.ToHiddenCommand(emojiCommand))
 	return nil
 })
+
+var logf func(format string, v ...interface{})
 
 var command = bot.SimpleCommand("roll", execute, commandInfo)
 var emojiCommand = bot.SimpleCommand("\U0001F3B2", execute, commandInfo)
@@ -64,11 +66,12 @@ func configure(c *config.Config) error {
 
 var rollRegexp = regexp.MustCompile("^([1-9][0-9]*)?d([1-9][0-9]*)([+-][1-9][0-9]*)?(?: .*)?$")
 
-func execute(s *dg.Session, m *dg.Message) error {
+func execute(s *dg.Session, m *dg.Message) {
 	// match roll pattern
 	loc := rollRegexp.FindStringSubmatchIndex(m.Content)
 	if loc == nil {
-		return nil
+		logf("[roll] invalid argument %q", m.Content)
+		return
 	}
 
 	// convert
@@ -79,7 +82,8 @@ func execute(s *dg.Session, m *dg.Message) error {
 		tmp = m.Content[loc[2]:loc[3]]
 		dice, err = strconv.Atoi(tmp)
 		if err != nil {
-			return errors.Wrapf(err, "strconv.Atoi failed on dice (%q)", tmp)
+			logf("[roll] %v", err)
+			return
 		}
 	} else {
 		dice = cfg.Dice.Min
@@ -87,25 +91,30 @@ func execute(s *dg.Session, m *dg.Message) error {
 	tmp = m.Content[loc[4]:loc[5]]
 	sides, err = strconv.Atoi(tmp)
 	if err != nil {
-		return errors.Wrapf(err, "strconv.Atoi failed on sides (%q)", tmp)
+		logf("[roll] %v", err)
+		return
 	}
 	if loc[6] >= 0 {
 		tmp = m.Content[loc[6]:loc[7]]
 		modifier, err = strconv.Atoi(tmp)
 		if err != nil {
-			return errors.Wrapf(err, "strconv.Atoi failed on modifier (%q)", tmp)
+			logf("[roll] %v", err)
+			return
 		}
 	}
 
 	// check limits
 	if !(cfg.Dice.Min <= dice && dice <= cfg.Dice.Max) {
-		return errors.Errorf("roll failed: dice out of bounds (%d, min = %d, max = %d)", dice, cfg.Dice.Min, cfg.Dice.Max)
+		logf("[roll] dice out of bounds (%d, min = %d, max = %d)", dice, cfg.Dice.Min, cfg.Dice.Max)
+		return
 	}
 	if !(cfg.Sides.Min <= sides && sides <= cfg.Sides.Max) {
-		return errors.Errorf("roll failed: sides out of bounds (%d, min = %d, max = %d)", sides, cfg.Sides.Min, cfg.Sides.Max)
+		logf("[roll] sides out of bounds (%d, min = %d, max = %d)", sides, cfg.Sides.Min, cfg.Sides.Max)
+		return
 	}
 	if !(cfg.Modifier.Min <= modifier && modifier <= cfg.Modifier.Max) {
-		return errors.Errorf("roll failed: modifier out of bounds (%d, min = %d, max = %d)", modifier, cfg.Modifier.Min, cfg.Modifier.Max)
+		logf("[roll] modifier out of bounds (%d, min = %d, max = %d)", modifier, cfg.Modifier.Min, cfg.Modifier.Max)
+		return
 	}
 
 	total := modifier
@@ -130,5 +139,7 @@ func execute(s *dg.Session, m *dg.Message) error {
 	}
 
 	_, err = s.ChannelMessageSend(m.ChannelID, text)
-	return err
+	if err != nil {
+		logf("[roll] %v", err)
+	}
 }

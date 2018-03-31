@@ -10,9 +10,12 @@ func Plugin() bot.Plugin {
 }
 
 var plugin = bot.SimplePlugin("say", func(b *bot.Bot) error {
+	logf = b.Logf
 	b.AddCommand(bot.ToOwnerCommand(command))
 	return nil
 })
+
+var logf func(format string, v ...interface{})
 
 var command = bot.SimpleCommand("say", execute, bot.SimpleCommandInfo{
 	Comment:     "say a message",
@@ -20,13 +23,20 @@ var command = bot.SimpleCommand("say", execute, bot.SimpleCommandInfo{
 	Description: "Make the bot say the message.",
 })
 
-func execute(s *dg.Session, m *dg.Message) error {
+func execute(s *dg.Session, m *dg.Message) {
 	err := s.ChannelMessageDelete(m.ChannelID, m.ID)
 	if err != nil {
-		return err
+		logf("[say] %v", err)
+		return
 	}
-	if m.Content != "" {
-		_, err = s.ChannelMessageSend(m.ChannelID, m.Content)
+
+	if m.Content == "" {
+		logf("[say] no argument")
+		return
 	}
-	return err
+
+	_, err = s.ChannelMessageSend(m.ChannelID, m.Content)
+	if err != nil {
+		logf("[say] %v", err)
+	}
 }

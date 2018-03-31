@@ -2,7 +2,6 @@ package avatar
 
 import (
 	"encoding/base64"
-	"errors"
 	"io/ioutil"
 	"net/http"
 
@@ -15,9 +14,12 @@ func Plugin() bot.Plugin {
 }
 
 var plugin = bot.SimplePlugin("avatar", func(b *bot.Bot) error {
+	logf = b.Logf
 	b.AddCommand(bot.ToOwnerCommand(command))
 	return nil
 })
+
+var logf func(format string, v ...interface{})
 
 var command = bot.SimpleCommand("avatar", execute, bot.SimpleCommandInfo{
 	Comment:     "change avatar",
@@ -25,36 +27,44 @@ var command = bot.SimpleCommand("avatar", execute, bot.SimpleCommandInfo{
 	Description: "Change the bot's avatar to the attached image or reset it to default if no image is attached with the command.",
 })
 
-func execute(s *dg.Session, m *dg.Message) error {
+func execute(s *dg.Session, m *dg.Message) {
 	n := len(m.Attachments)
 	if n > 1 {
-		return errors.New("more than one attachment")
+		logf("[avatar] more than one attachment")
+		return
 	}
 
 	avatar := "data:;base64,"
 	if n != 0 {
 		r, err := http.Get(m.Attachments[0].URL)
 		if err != nil {
-			return err
+			logf("[avatar] %v", err)
+			return
 		}
 		b, err := ioutil.ReadAll(r.Body)
 		r.Body.Close()
 		if err != nil {
-			return err
+			logf("[avatar] %v", err)
+			return
 		}
 
 		switch mime := http.DetectContentType(b); mime {
 		case "image/gif", "image/jpeg", "image/png":
 			avatar = "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(b)
 		default:
-			return errors.New("invalid MIME type: " + mime)
+			logf("[avatar] invalid MIME type %q", mime)
+			return
 		}
 	}
 
 	_, err := s.UserUpdate("", "", "", avatar, "")
 	if err != nil {
-		return err
+		logf("[avatar] %v", err)
+		return
 	}
 
-	return s.ChannelMessageDelete(m.ChannelID, m.ID)
+	err = s.ChannelMessageDelete(m.ChannelID, m.ID)
+	if err != nil {
+		logf("[avatar] %v", err)
+	}
 }
