@@ -9,27 +9,21 @@ import (
 	"github.com/njhanley/stoopid/bot"
 	"github.com/njhanley/stoopid/config"
 	"github.com/njhanley/stoopid/plugins/avatar"
-	"github.com/njhanley/stoopid/plugins/crypto"
 	"github.com/njhanley/stoopid/plugins/eightball"
 	"github.com/njhanley/stoopid/plugins/name"
 	"github.com/njhanley/stoopid/plugins/roll"
 	"github.com/njhanley/stoopid/plugins/say"
 	"github.com/njhanley/stoopid/plugins/status"
-	"github.com/njhanley/stoopid/plugins/weeb"
-	"github.com/njhanley/stoopid/plugins/xkcd"
 	"golang.org/x/sys/unix"
 )
 
 var plugins = []bot.Plugin{
 	avatar.Plugin(),
-	crypto.Plugin(),
 	eightball.Plugin(),
 	name.Plugin(),
 	roll.Plugin(),
 	say.Plugin(),
 	status.Plugin(),
-	weeb.Plugin(),
-	xkcd.Plugin(),
 }
 
 var cfgfile = flag.String("c", "config.json", "config file")
